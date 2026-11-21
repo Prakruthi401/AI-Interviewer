@@ -33,3 +33,9 @@ Get a free key from Google AI Studio. Anyone using the app can also paste their 
 - Scores come from the model, so treat them as rough guidance.
 - Resume reading needs a text-based PDF, scanned images will not work.
 - The model names are a list at the top of `app.py`. If one is busy or retired, the next one is tried. The free key has a small daily limit.
+
+## Demo
+
+![AI Interviewer demo](assets/demo.gif)
+
+Live setup and a generated first question. This GIF has no audio; voice output and microphone support depend on your browser.
