@@ -295,6 +295,8 @@ def interview_screen():
                     raw = ask_llm(client, report_prompt(setup, messages))
             except Exception as e:
                 st.error(str(e))
+                if st.button("Try again"):
+                    st.rerun()
                 return
             st.session_state.report = parse_json(raw) or {"raw": raw}
         rep = st.session_state.report
@@ -335,6 +337,12 @@ def interview_screen():
                 nxt = ask_llm(client, interviewer_prompt(setup, messages, NUM_QUESTIONS - answered))
         except Exception as e:
             st.error(str(e))
+            retry, back = st.columns([1, 1])
+            if retry.button("Try again"):
+                st.rerun()
+            if back.button("Back to setup"):
+                reset()
+                st.rerun()
             return
         messages.append({"role": "assistant", "content": nxt})
         st.rerun()
