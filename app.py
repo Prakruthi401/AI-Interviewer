@@ -1,5 +1,6 @@
 import json
 import os
+import time
 
 import streamlit as st
 from google import genai
@@ -9,7 +10,8 @@ import resume_check
 from voice import voice_orb
 
 # tried in this order. If one is busy or retired the next one is used.
-MODELS = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-flash-lite-latest"]
+MODELS = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-flash-lite-latest",
+          "gemini-3.1-flash-lite-preview", "gemini-flash-latest"]
 NUM_QUESTIONS = 6
 
 st.set_page_config(page_title="AI Interviewer", layout="wide")
@@ -32,18 +34,41 @@ def get_client(user_key=""):
     return genai.Client(api_key=key) if key else None
 
 
+def explain_error(errors):
+    """Turn the list of (model, error) pairs into one clear message."""
+    texts = [str(e) for _, e in errors]
+    if any("API key" in t or "API_KEY" in t or "PERMISSION_DENIED" in t for t in texts):
+        return "The Gemini key was rejected. Check the key you entered, or clear it to use the default one."
+    if any("429" in t or "RESOURCE_EXHAUSTED" in t for t in texts):
+        return ("The free Gemini quota is used up for now. Wait a bit and try again, "
+                "or paste your own key in the box at the top.")
+    if all("404" in t or "NOT_FOUND" in t for t in texts):
+        return "None of the configured Gemini models are available right now."
+    return "Gemini is busy right now. Please try again in a minute."
+
+
 def ask_llm(client, prompt):
-    last_error = None
+    errors = []
     for model in MODELS:
-        try:
-            reply = client.models.generate_content(model=model, contents=prompt)
-            return reply.text.strip()
-        except Exception as e:
-            last_error = e
-            # a bad key will fail on every model, so stop early
-            if "API key" in str(e) or "API_KEY" in str(e):
+        for attempt in range(2):
+            try:
+                reply = client.models.generate_content(model=model, contents=prompt)
+                if reply.text:
+                    return reply.text.strip()
                 break
-    raise last_error
+            except Exception as e:
+                msg = str(e)
+                # bad key fails on every model, so stop early
+                if "API key" in msg or "API_KEY" in msg:
+                    raise RuntimeError(explain_error([(model, e)]))
+                # a busy model gets one more try, anything else moves to the next model
+                if "503" in msg or "UNAVAILABLE" in msg:
+                    errors.append((model, e))
+                    time.sleep(1.5)
+                    continue
+                errors.append((model, e))
+                break
+    raise RuntimeError(explain_error(errors))
 
 
 def read_resume(uploaded):
@@ -234,7 +259,7 @@ def resume_screen():
             with st.spinner("Thinking..."):
                 st.write(ask_llm(client, prompt))
         except Exception as e:
-            st.error(f"Could not reach Gemini: {e}")
+            st.error(str(e))
 
 
 def interview_screen():
@@ -269,7 +294,7 @@ def interview_screen():
                 with st.spinner("Writing your feedback report..."):
                     raw = ask_llm(client, report_prompt(setup, messages))
             except Exception as e:
-                st.error(f"Could not reach Gemini: {e}")
+                st.error(str(e))
                 return
             st.session_state.report = parse_json(raw) or {"raw": raw}
         rep = st.session_state.report
@@ -309,7 +334,7 @@ def interview_screen():
             with st.spinner("Interviewer is thinking..."):
                 nxt = ask_llm(client, interviewer_prompt(setup, messages, NUM_QUESTIONS - answered))
         except Exception as e:
-            st.error(f"Could not reach Gemini: {e}")
+            st.error(str(e))
             return
         messages.append({"role": "assistant", "content": nxt})
         st.rerun()
