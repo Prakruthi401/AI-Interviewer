@@ -8,26 +8,42 @@ from pypdf import PdfReader
 import resume_check
 from voice import voice_orb
 
-# change this one line if Google retires the model
-MODEL = "gemini-3.1-flash-lite"
+# tried in this order. If one is busy or retired the next one is used.
+MODELS = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-flash-lite-latest"]
 NUM_QUESTIONS = 6
 
 st.set_page_config(page_title="AI Interviewer", layout="wide")
 
 
-def get_client():
+def default_key():
+    """The app owner's key, from an environment variable or Streamlit secrets."""
     key = os.environ.get("GEMINI_API_KEY")
     if not key:
         try:
             key = st.secrets["GEMINI_API_KEY"]
         except Exception:
             key = None
+    return key
+
+
+def get_client(user_key=""):
+    # a key typed in the app wins, otherwise use the owner's default key
+    key = user_key.strip() or default_key()
     return genai.Client(api_key=key) if key else None
 
 
 def ask_llm(client, prompt):
-    reply = client.models.generate_content(model=MODEL, contents=prompt)
-    return reply.text.strip()
+    last_error = None
+    for model in MODELS:
+        try:
+            reply = client.models.generate_content(model=model, contents=prompt)
+            return reply.text.strip()
+        except Exception as e:
+            last_error = e
+            # a bad key will fail on every model, so stop early
+            if "API key" in str(e) or "API_KEY" in str(e):
+                break
+    raise last_error
 
 
 def read_resume(uploaded):
@@ -169,12 +185,17 @@ if "setup" not in st.session_state:
         unsafe_allow_html=True,
     )
 
-client = get_client()
-if client is None:
-    st.warning(
-        "No Gemini API key found. Set GEMINI_API_KEY as an environment variable "
-        "or in .streamlit/secrets.toml, then reload."
+with st.expander("Use your own Gemini key (optional)"):
+    st.caption(
+        "The app already has a key. If you see a quota error, paste your own free key "
+        "from Google AI Studio here. It is kept only for this browser session and is "
+        "never saved or logged."
     )
+    user_key = st.text_input("Your Gemini API key", type="password", key="user_key")
+
+client = get_client(user_key)
+if client is None:
+    st.warning("No Gemini API key available. Paste your own key above to continue.")
     st.stop()
 
 def resume_screen():

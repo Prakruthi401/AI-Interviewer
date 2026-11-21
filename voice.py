@@ -6,6 +6,7 @@ When the browser has no speech support the orb stays still and you type instead.
 """
 import json
 
+import streamlit as st
 import streamlit.components.v1 as components
 
 PAGE = """
@@ -129,5 +130,10 @@ if (!Rec) {
 
 
 def voice_orb(question):
-    html = PAGE.replace("__QUESTION__", json.dumps(question))
-    components.html(html, height=430)
+    # the question comes from the model, so make sure it can never close the script tag
+    safe = json.dumps(question).replace("</", "<\\/")
+    html = PAGE.replace("__QUESTION__", safe)
+    if hasattr(st, "iframe"):
+        st.iframe(html, height=430)
+    else:
+        components.html(html, height=430)

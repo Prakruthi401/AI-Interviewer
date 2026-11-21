@@ -24,7 +24,7 @@ export GEMINI_API_KEY=your_key_here
 streamlit run app.py
 ```
 
-Get a free key from Google AI Studio. On Streamlit Cloud add it under Secrets as `GEMINI_API_KEY = "..."`. Never commit the key.
+Get a free key from Google AI Studio. Anyone using the app can also paste their own key into the "Use your own Gemini key" box. It is used instead of the default key for that browser session only and is not stored. On Streamlit Cloud add it under Secrets as `GEMINI_API_KEY = "..."`. Never commit the key.
 
 ## Limits
 
@@ -32,4 +32,4 @@ Get a free key from Google AI Studio. On Streamlit Cloud add it under Secrets as
 - The company field only sets a general style. It does not use that company's real questions.
 - Scores come from the model, so treat them as rough guidance.
 - Resume reading needs a text-based PDF, scanned images will not work.
-- The model name is a constant at the top of `app.py`. The free key has a small daily limit.
+- The model names are a list at the top of `app.py`. If one is busy or retired, the next one is tried. The free key has a small daily limit.
