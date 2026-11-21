@@ -1,4 +1,4 @@
-**Live app:** _link goes here after the Streamlit Cloud deploy_
+**Live app:** https://ai-interviewer-prakruthi.streamlit.app
 
 # AI Interviewer
 
